@@ -29,7 +29,7 @@ const Home = () => {
         console.log(data);
         });
     };
-    
+
 
   const addComment = (id) => {
     fetch("https://sixthsens-ai.onrender.com/reviews", {
@@ -114,9 +114,9 @@ const Home = () => {
   }, []);
 
   return (
-    <div className="pb-10">
+    <div className="pb-10 sm:mt-0 mt-12">
       <button
-        className="fixed top-2 right-2 px-3 py-2 rounded-md"
+        className="sm:fixed absolute sm:top-2 top-[4.5rem] right-2 px-3 py-2 rounded-md"
         onClick={()=>setShowAllPRs(!showALlprs)}
       >{showALlprs?"See your Pull Requests":"See all Pull Requests"}</button>
       {showALlprs?(<><h1 className="text-2xl font-bold  text-center">All Pull Requests</h1>
@@ -168,12 +168,12 @@ const Home = () => {
             </div>}
             {!userData.roles.includes('Approver') && <><button
                 onClick={()=>{setStatus('Approved');handleApprove(pr._id)}}
-                className="bg-green-500 py-1 rounded-md px-3 ml-2 absolute bottom-8 right-2 cursor-pointer">
+                className="bg-green-500 py-1 rounded-md px-3 ml-2 mt-2  bottom-8 right-2 cursor-pointer">
                     Approve
                 </button>
                 <button 
                 onClick={()=>{setStatus('Rejected');handleApprove(pr._id)}}
-                className="bg-red-500 py-1 rounded-md px-3 ml-2 absolute bottom-0 right-2 cursor-pointer"
+                className="bg-red-500 py-1 rounded-md px-3 ml-2 mt-2  bottom-0 right-2 cursor-pointer"
                 >
                     Reject
                 </button></>
