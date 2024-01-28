@@ -1,34 +1,46 @@
 import { User, PullRequest , Review, Approval} from './model.js';
 
-export const createRequest =  async (req, res) => {
-    try {
-      // Extract data from the request body
-      const { title, description, requesterId, approvers } = req.body;
-  
-      // Check if the requesterId exists in the Users collection
-      const requesterExists = await User.exists({ _id: requesterId });
-      if (!requesterExists) {
-        return res.status(404).json({ error: 'Requester not found' });
-      }
-  
-      // Create a new pull request
-      const newPullRequest = new PullRequest({
-        title,
-        description,
-        requesterId,
-        approvers,
-        status: 'Open',
-      });
-  
-      // Save the pull request to the database
-      await newPullRequest.save();
-  
-      res.status(201).json(newPullRequest);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Internal Server Error' });
+export const createRequest = async (req, res) => {
+  try {
+    // Extract data from the request body
+    const { title, description, requesterId, approvers } = req.body;
+    const approversList = [];
+
+    // Check if the requesterId exists in the Users collection
+    const requesterExists = await User.exists({ _id: requesterId });
+    if (!requesterExists) {
+      return res.status(404).json({ error: 'Requester not found' });
     }
-  };
+
+    await Promise.all(
+      approvers.map(async (username) => {
+        const approverExists = await User.exists({ username: username });
+        if (!approverExists) {
+          return res.status(404).json({ error: `Approver '${username}' not found` });
+        }
+        approversList.push({ approverId: approverExists._id });
+      })
+    );
+
+    // Create a new pull request
+    const newPullRequest = new PullRequest({
+      title,
+      description,
+      requesterId,
+      approvers: approversList,
+      status: 'Open',
+    });
+
+    // Save the pull request to the database
+    await newPullRequest.save();
+
+    res.status(201).json(newPullRequest);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 
 export const updateRequest = async (req, res) => {
     try {
@@ -212,6 +224,12 @@ export const addApproval = async (req, res) => {
   
       // Save the approval to the database
       await newApproval.save();
+
+      // Update the pull request status
+      await PullRequest.updateOne(
+        { _id: pullRequestId },
+        { status }
+      );
   
       res.status(201).json(newApproval);
     } catch (error) {
