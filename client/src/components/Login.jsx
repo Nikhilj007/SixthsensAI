@@ -8,7 +8,7 @@ const Login = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const res = await fetch('https://sixthsens-ai.onrender.com/login', {
+        const res = await fetch('http://localhost:8080/login', {
             method: 'POST',
             headers: {
             'Content-Type': 'application/json',
@@ -19,10 +19,8 @@ const Login = () => {
         if (data.error) {
             console.log(data.error);
         }
-        if (data) {
           localStorage.setItem('userData', JSON.stringify(data));
             navigate('/home');
-        }
         console.log(data);
         }
 

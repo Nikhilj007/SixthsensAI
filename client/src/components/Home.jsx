@@ -166,7 +166,7 @@ const Home = () => {
                     Submit
                 </button>
             </div>}
-            {!userData.roles.includes('Approver') && <><button
+            {userData.roles.includes('Approver') && <><button
                 onClick={()=>{setStatus('Approved');handleApprove(pr._id)}}
                 className="bg-green-500 py-1 rounded-md px-3 ml-2 mt-2  bottom-8 right-2 cursor-pointer">
                     Approve

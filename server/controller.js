@@ -13,7 +13,7 @@ export const createRequest = async (req, res) => {
     }
 
     await Promise.all(
-      approvers.map(async (username) => {
+      approvers.map(async (username) => { 
         const approverExists = await User.exists({ username: username });
         if (!approverExists) {
           return res.status(404).json({ error: `Approver '${username}' not found` });
@@ -228,7 +228,7 @@ export const addApproval = async (req, res) => {
       // Update the pull request status
       await PullRequest.updateOne(
         { _id: pullRequestId },
-        { status }
+        { status: status==='Approved'?'Closed':'Open', updatedAt: new Date() }
       );
   
       res.status(201).json(newApproval);
