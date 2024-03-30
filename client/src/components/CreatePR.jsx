@@ -7,17 +7,27 @@ const CreatePR = () => {
   const [description, setDescription] = useState('');
   const [requesterId, setRequesterId] = useState(JSON.parse(localStorage.getItem('userData'))._id);
   const [approvers, setApprovers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]); // [
+  const [flow, setFlow] = useState('Parallel'); // [
   const prId = useLocation().pathname.split('/')[2];
   const navigate = useNavigate();
 
   useEffect(() => {
     if(prId){
-        fetch('https://sixthsens-ai.onrender.com/pull-requests/'+prId)
+        fetch('http://localhost:8080/pull-requests/'+prId)
         .then((res) => res.json())
         .then((data) => {
             console.log(data);
             setTitle(data.title);
             setDescription(data.description);
+        });
+    }
+    else {
+        fetch('http://localhost:8080/getusers')
+        .then((res) => res.json())
+        .then((data) => {
+            console.log(data);
+            setAllUsers(data);
         });
     }
     }, []);
@@ -28,7 +38,7 @@ const CreatePR = () => {
     
     // Assuming you have a function to handle the form submission
     // (You can replace this with your actual fetch logic)
-    const res = await fetch('https://sixthsens-ai.onrender.com/pull-requests/'+prId, {
+    const res = await fetch('http://localhost:8080/pull-requests/'+prId, {
         method: 'PATCH',
         headers: {
         'Content-Type': 'application/json',
@@ -51,12 +61,12 @@ const CreatePR = () => {
 
     // Assuming you have a function to handle the form submission
     // (You can replace this with your actual fetch logic)
-    const res = await fetch('https://sixthsens-ai.onrender.com/pull-requests', {
+    const res = await fetch('http://localhost:8080/pull-requests', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ title, description, requesterId, approvers }),
+      body: JSON.stringify({ title, description, requesterId, approvers, flow }),
     })
     .catch((err) => console.error(err));
 
@@ -101,11 +111,24 @@ const CreatePR = () => {
             onChange={(e) => setApprovers(Array.from(e.target.selectedOptions, (option) => option.value))}
             required
           >
-            {/* Replace the options below with your actual list of approvers */}
-            <option value="approver1">Approver 1</option>
-            <option value="approver2">Approver 2</option>
+            {/* Replace the options below with your actual list of approvers except if user._id matches userData._id */}
+            {allUsers.map((user) => {console.log(user);
+             if(user._id == JSON.parse(localStorage.getItem('userData'))._id) return;
+             return (
+               <option key={user._id} value={user._id}>{user.username}</option>
+            )})}
           </select>
         </div>}
+
+        {!prId && <><label>Flow of approval</label><select
+            className="w-full p-2 border rounded-md"
+            value={flow}
+            onChange={(e) => setFlow(e.target.value)}
+            required
+          >
+            <option value="Parallel">Parallel</option>
+            <option value="Sequential">Sequential</option>
+          </select></>}
 
         {prId?<button
             onClick={handleEdit}

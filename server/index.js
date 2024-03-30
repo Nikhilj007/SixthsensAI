@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 
-import { createRequest,updateRequest,deleteRequest, getRequests, getReviews, createReview, updateReview, getApprovals, addApproval, login } from "./controller.js";
+import { createRequest,updateRequest,deleteRequest, getRequests, addApproval, login,  addComment, getAllUsers, signup } from "./controller.js";
 
 dotenv.config();
 const app = express();
@@ -13,21 +13,21 @@ app.use(express.urlencoded({ extended: true }));
 
 //Login API
 app.post("/login", login);
+app.post('/signup', signup);
+app.get("/getusers",getAllUsers);
 
 // CRUD API for pull requests
-app.get("/pull-requests", getRequests); 
+app.get("/pull-requests", getRequests);  
 app.get("/pull-requests/:id", getRequests);
 app.post("/pull-requests",createRequest);
 app.patch("/pull-requests/:id",updateRequest);
-app.delete("/pull-requests/:id",deleteRequest);
+app.delete("/pull-requests/:id",deleteRequest); 
 
-// CRUD API for reviews
-app.get("/reviews", getReviews);
-app.post("/reviews",createReview);
-app.path("/reviews/:id",updateReview);
+// CRUD API for comments
+app.post("/pull-requests/comments", addComment);
+
 
 // CRUD API for approvals
-app.get("/approvals", getApprovals);
 app.post("/approvals",addApproval);
 
 const PORT = process.env.PORT || 5000;

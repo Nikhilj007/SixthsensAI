@@ -1,38 +1,44 @@
-import { User, PullRequest , Review, Approval} from './model.js';
+import { User, PullRequest } from './model.js';
+
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find();
+    res.status(200).json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
 
 export const createRequest = async (req, res) => {
   try {
-    // Extract data from the request body
-    const { title, description, requesterId, approvers } = req.body;
-    const approversList = [];
-
-    // Check if the requesterId exists in the Users collection
-    const requesterExists = await User.exists({ _id: requesterId });
-    if (!requesterExists) {
-      return res.status(404).json({ error: 'Requester not found' });
-    }
-
-    await Promise.all(
-      approvers.map(async (username) => { 
-        const approverExists = await User.exists({ username: username });
-        if (!approverExists) {
-          return res.status(404).json({ error: `Approver '${username}' not found` });
-        }
-        approversList.push({ approverId: approverExists._id });
-      })
-    );
-
+    const { title, description, requesterId, approvers , flow } = req.body;
+    //get the approvers year from the user collection
+    const arr = [];
+    const users = await User.find({ _id: { $in:approvers } });
+    users.forEach(user => {        
+      const yearIndex = user.year - 1;
+      if (!arr[yearIndex]) {
+          arr[yearIndex] = [];
+      }
+      arr[yearIndex].push({ userId: user._id, action: 'Pending' });
+  });
     // Create a new pull request
     const newPullRequest = new PullRequest({
       title,
       description,
       requesterId,
-      approvers: approversList,
-      status: 'Open',
+      approvers: arr,
+      flow,
     });
 
     // Save the pull request to the database
     await newPullRequest.save();
+    users.map(async user => {
+      user.prs.push(newPullRequest._id);
+      await user.save();
+    } );
+
 
     res.status(201).json(newPullRequest);
   } catch (error) {
@@ -49,7 +55,7 @@ export const updateRequest = async (req, res) => {
       const { id: pullRequestId } = req.params;
   
         // Check if the pull request with associated requestId exists
-        const pullRequestExists = await PullRequest.exists({ _id: pullRequestId, requesterId });
+        const pullRequestExists = await PullRequest.exists({ _id: pullRequestId });
         if (!pullRequestExists) {
           return res.status(404).json({ error: 'Pull Request not found' });
         }
@@ -109,129 +115,96 @@ export const getRequests = async (req, res) => {
     }
   }
 
-export const getReviews = async (req, res) => {
-    try {
-      // Extract the pullRequestId from the request query
-      const { pullRequestId } = req.query;
-  
-      // Find all the reviews for the pullRequestId
-      const reviews = await Review.find({ pullRequestId });
-  
-      res.status(200).json(reviews);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    }
-  }
-
-export const createReview = async (req, res) => {
+export const addComment = async (req, res) => {
     try {
       // Extract data from the request body
-      const { pullRequestId, reviewerId, comments } = req.body;
+      const { pullRequestId, username, comment } = req.body;
   
-      // Check if the pull request with associated pullRequestId exists
-      const pullRequestExists = await PullRequest.exists({ _id: pullRequestId });
-      if (!pullRequestExists) {
-        return res.status(404).json({ error: 'Pull Request not found' });
+      const pullRequest = await PullRequest.findById(pullRequestId);
+      if (!pullRequest) {
+        throw new Error('Pull Request not found');
       }
   
-      // Check if the reviewer with associated reviewerId exists
-      const reviewerExists = await User.exists({ _id: reviewerId, roles: 'Reviewer' });
-      if (!reviewerExists) {
-        return res.status(404).json({ error: 'You are not a reviewer' });
-      }
+      // Add the new comment to the comments array
+      pullRequest.comments.push({ username, comment });
   
-      // Create a new review
-      const newReview = new Review({
-        pullRequestId,
-        reviewerId,
-        comments,
-      });
-  
-      // Save the review to the database
-      await newReview.save();
-  
-      res.status(201).json(newReview);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    }
+      // Save the updated pull request document
+      await pullRequest.save();
+      res.status(201).json('Comment added successfully');
   }
-
-export const updateReview = async (req, res) => {
-    try {
-      // Extract data from the request body
-      const { comments } = req.body;
-      const { id: reviewId } = req.params;
-  
-      // Check if the review with associated reviewId exists
-      const reviewExists = await Review.exists({ _id: reviewId });
-      if (!reviewExists) {
-        return res.status(404).json({ error: 'Review not found' });
-      }
-  
-      // Update the review
-      await Review.updateOne(
-        { _id: reviewId },
-        { comments, updatedAt: new Date() }
-      );
-  
-      res.status(200).json({ message: 'Review updated successfully' });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
-
-export const getApprovals = async (req, res) => {
-    try {
-      // Extract the pullRequestId from the request query
-      const { pullRequestId } = req.query;
-  
-      // Find all the approvals for the pullRequestId
-      const approvals = await Approval.find({ pullRequestId });
-  
-      res.status(200).json(approvals);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    }
-  }
-
+}
+//edit comment
+//add approval by editing the pull request in sequenital, parallel and hybrid flow
 export const addApproval = async (req, res) => {
     try {
       // Extract data from the request body
-      const { pullRequestId, approverId, status } = req.body;
+      const { pullRequestId, userId, action } = req.body;
   
       // Check if the pull request with associated pullRequestId exists
-      const pullRequestExists = await PullRequest.exists({ _id: pullRequestId });
+      const pullRequestExists = await PullRequest.findById(pullRequestId);
       if (!pullRequestExists) {
         return res.status(404).json({ error: 'Pull Request not found' });
       }
   
-      // Check if the approver with associated approverId exists
-      const approverExists = await User.exists({ _id: approverId, roles: 'Approver' });
-      if (!approverExists) {
-        return res.status(404).json({ error: 'You are not an approver' });
+      // Update the pull request with the new approval approvers is array of array of objects
+      if(pullRequestExists.flow === 'Parallel'){
+        await PullRequest.updateOne(
+          { _id: pullRequestId },
+          { status: action}
+        );
+        pullRequestExists.approvers.flat().forEach(approver => {
+          if (approver!=null && approver.userId == userId) {
+            approver.action = action;
+          }
+        }
+        );
+        await pullRequestExists.save();
+      }
+
+      if(pullRequestExists.flow === 'Sequential'){
+        const ind= pullRequestExists.index;
+        pullRequestExists.approvers[ind].forEach(approver => {
+          if (approver.userId == userId) {
+            approver.action = action;
+          }
+        }
+        );
+        pullRequestExists.markModified(`approvers.${ind}`);
+        await pullRequestExists.save();
+        //if all the approvers in newapprover have approved the pull request increment the index and if the index is equal to the length of the approvers array then set the status to approved
+        if(pullRequestExists.approvers[ind].every(approver => approver.action === 'Approved')){
+          if(ind === pullRequestExists.approvers.length - 1){
+            await PullRequest.updateOne(
+              { _id: pullRequestId },
+              { status: 'Approved' }
+            );
+          }
+          else{
+            await PullRequest.updateOne(
+              { _id: pullRequestId },
+              { index: ind+1 }
+            );
+          }
+        }
+        else if(pullRequestExists.approvers[ind].some(approver => approver.action === 'Rejected')){
+          await PullRequest.updateOne(
+            { _id: pullRequestId },
+            { status: 'Rejected' }
+          );
+        }
+        else{
+          await PullRequest.updateOne(
+            { _id: pullRequestId },
+            { approvers: pullRequestExists.approvers }
+          );
+        }
       }
   
-      // Create a new approval
-      const newApproval = new Approval({
-        pullRequestId,
-        approverId,
-        status,
-      });
-  
-      // Save the approval to the database
-      await newApproval.save();
-
-      // Update the pull request status
-      await PullRequest.updateOne(
-        { _id: pullRequestId },
-        { status: status==='Approved'?'Closed':'Open', updatedAt: new Date() }
-      );
-  
-      res.status(201).json(newApproval);
+      res.status(200).json({message:`${action} successfully`} );
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Internal Server Error' });
@@ -249,4 +222,26 @@ export const login = async (req, res) => {
     }
     res.status(200).json(user);
   }
+
+export const signup = async (req, res) => {
+    try {
+      const { username, email, password, year } = req.body;
   
+      // Check if the user already exists
+      const existingUser = await User.findOne ({ email });
+      if (existingUser) {
+        return res.status(409).json({ error: 'User already exists' });
+      }
+
+      // Create a new user
+      const newUser = new User({ username, email, password, year });
+
+      // Save the user to the database
+      await newUser.save();
+      res.status(201).json(newUser);
+    }
+    catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
